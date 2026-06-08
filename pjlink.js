@@ -259,6 +259,9 @@ class PJInstance extends InstanceBase {
 					line = '',
 					offset = 0
 				receivebuffer += chunk
+				// Remove any null characters the projector returns as they break the command matching
+				receivebuffer = receivebuffer.replaceAll('\0', '')
+
 				while ((i = receivebuffer.indexOf('\r', offset)) !== -1) {
 					line = receivebuffer.slice(offset, i)
 					offset = i + 1

@@ -126,8 +126,9 @@ class PJInstance extends InstanceBase {
 			}
 
 			// send first command with (or without) auth password
-			this.lastCmd = '%1POWR ?'
-			this.socket?.send(this.passwordstring + this.lastCmd + '\r').then(() => {
+			let nextCmd = '%1POWR ?'
+			this.lastCmd = nextCmd.slice(0, 6)
+			this.socket?.send(this.passwordstring + nextCmd + '\r').then(() => {
 				this.getProjectorDetails()
 				if (this.poll_interval) {
 					clearInterval(this.poll_interval)
@@ -539,7 +540,7 @@ class PJInstance extends InstanceBase {
 
 				if (this.commands.length) {
 					if (this.lastCmd != data.slice(0, 6)) {
-						this.log('debug', `Response mismatch, expected ${this.lastCmd}`)
+						this.log('warn', `Response mismatch, expected '${this.lastCmd}' got '${data.slice(0, 6)}'`)
 					}
 					let nextCmd = this.commands.shift()
 					if (this.DebugLevel >= 1) {

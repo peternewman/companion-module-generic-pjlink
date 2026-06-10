@@ -79,8 +79,7 @@ class PJInstance extends InstanceBase {
 		this.commands = []
 
 		this.init_variables()
-		this.init_feedbacks()
-		this.buildActions() // export actions
+		this.updateDynamicContent() // Update all dynamic content
 		this.init_tcp()
 	}
 
@@ -391,8 +390,9 @@ class PJInstance extends InstanceBase {
 									label: `${inClass}-${classCount[classNum]} (${p})`,
 								})
 							}
-							this.updateActions = true
 							this.needInputs = false
+							// got full list of input names from PJ, update dynamic content
+							this.updateDynamicContent() // Update all dynamic content
 							break
 						case '%2INST':
 							this.needInputs = false
@@ -406,7 +406,10 @@ class PJInstance extends InstanceBase {
 								let num = this.projector.inputNames[idx].id
 								this.projector.inputNames[idx].label = `${resp} (${num})`
 								this.haveNames += 1
-								this.updateActions = this.projector.inputNames.length == this.haveNames
+								// got full list of input names from PJ, update dynamic content
+								if (this.projector.inputNames.length == this.haveNames) {
+									this.updateDynamicContent() // Update all dynamic content
+								}
 							}
 							break
 						case '%1POWR':
@@ -663,6 +666,17 @@ class PJInstance extends InstanceBase {
 	}
 
 	/**
+	 * Update dynamic content
+	 *
+	 * @since 2.6.0
+	 */
+	updateDynamicContent() {
+		this.init_feedbacks() // rebuild feedbacks
+		this.buildActions() // reload actions
+		this.buildPresets() // export presets
+	}
+
+	/**
 	 * Setup actions for this module
 	 *
 	 * @since 2.0.0
@@ -738,6 +752,96 @@ class PJInstance extends InstanceBase {
 		}
 		this.setActionDefinitions(actions)
 	}
+
+	/**
+	 * Setup presets for this module
+	 *
+	 * @since 2.6.0
+	 */
+	buildPresets() {
+		const colorWhite = combineRgb(255, 255, 255) // White
+		const colorBlack = combineRgb(0, 0, 0) // Black
+		const colorYellow = combineRgb(255, 255, 0) // Yellow
+
+		const foregroundColorDefault = colorWhite
+		const foregroundColorAlternative = colorBlack
+		const backgroundColorDefault = colorBlack
+		const backgroundColorAlternative = colorYellow
+
+		let presets = []
+
+		for (const input of this.projector.inputNames.sort(function (a, b) {
+			return a.label.localeCompare(b.label)
+		})) {
+			presets[`input_${input.id}`] = {
+				category: `Inputs`,
+				name: `Input ${input.label}`,
+				type: 'button',
+				style: {
+					text: `${input.label}`,
+					color: foregroundColorDefault,
+					bgcolor: backgroundColorDefault,
+				},
+				feedbacks: [
+					{
+						feedbackId: 'projectorInput',
+						style: {
+							color: foregroundColorAlternative,
+							bgcolor: backgroundColorAlternative,
+						},
+						options: { inputNum: input.id },
+					},
+				],
+				steps: [
+					{
+						down: [
+							{
+								actionId: 'inputToggle',
+								options: { inputNum: input.id },
+							},
+						],
+						up: [],
+					},
+				],
+			}
+		}
+
+		for (const mute of ar2obj(CONFIG.MUTE_ITEM)) {
+			presets[`mute_${mute.id}`] = {
+				category: `A/V Mute`,
+				name: `${mute.label}`,
+				type: 'button',
+				style: {
+					text: `${mute.label}`,
+					color: foregroundColorDefault,
+					bgcolor: backgroundColorDefault,
+				},
+				feedbacks: [
+					{
+						feedbackId: 'muteState',
+						style: {
+							color: foregroundColorAlternative,
+							bgcolor: backgroundColorAlternative,
+						},
+						options: { item: mute.id, opt: 1 },
+					},
+				],
+				steps: [
+					{
+						down: [
+							{
+								actionId: 'muteState',
+								options: { item: mute.id, opt: 1 },
+							},
+						],
+						up: [],
+					},
+				],
+			}
+		}
+		this.setPresetDefinitions(presets)
+	}
+
 
 	doAction(action) {
 		let opt = action.options
@@ -1249,12 +1353,6 @@ class PJInstance extends InstanceBase {
 			this.lastHours = Date.now()
 		}
 
-		// got full list of input names from PJ, update action dropdown
-		if (this.updateActions) {
-			this.buildActions() // reload actions
-			this.init_feedbacks() // rebuild feedbacks
-			this.updateActions = false // only need once
-		}
 		// resend passcode if using
 
 		//Query Power
